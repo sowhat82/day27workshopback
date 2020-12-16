@@ -62,3 +62,158 @@ const pool = mysql.createPool({
 })
 // start the app
 startApp(app, pool)
+app.post('/review', async (req, resp) => {
+
+    const user = req.body.user;
+    const rating = parseFloat(req.body.rating);
+    const comment = req.body.comment;
+    const ID = parseInt(req.body.ID);
+    const posted = new Date()
+    
+    try{
+
+        // get the name based on ID to be passed into the next portion
+        const games = await client.db(DATABASE)
+        .collection('games')
+        .find(
+            {
+                ID: ID
+            }        
+        )
+        .project({ Name:1})
+        .toArray()
+
+        console.info(games)
+        if (games.length <= 0 ){
+            resp.status(404)
+            resp.json({ message: `Cannot find game ${ID}`})
+            return
+        }
+
+        // add new review into database
+        const result = await client.db(DATABASE)
+        .collection(COLLECTION)
+        .insertOne({
+            user:  user,
+            rating: rating,
+            comment: comment,
+            ID: ID,
+            posted: new Date(),
+            name: games[0].Name
+        })
+
+        resp.status(200)
+        resp.type('application/json')
+        resp.json(result)
+
+    }
+    catch(e){
+        resp.status(500)
+        console.info(e)
+        resp.json({e})
+    }
+
+});
+
+app.put('/review/:reviewID', async (req, resp) => {
+
+    
+    const rating = parseFloat(req.body.rating);
+    const comment = req.body.comment;
+    const posted = new Date()
+    
+    try{
+        const reviewID = ObjectId(req.params.reviewID);
+   
+        // add updated review into database as an array of embedded objects. "edited" automatically becomes an array
+        const result = await client.db(DATABASE)
+        .collection(COLLECTION)
+        .updateOne(
+            {
+                _id: reviewID
+            },
+            {
+                $push : {edited: 
+                    {comment: comment, rating: rating, posted: posted}
+                }
+            },
+            {
+                upsert: true
+            }
+        )
+
+        resp.status(200)
+        resp.type('application/json')
+        resp.json(result)
+
+    }
+    catch(e){
+        resp.status(500)
+        resp.json({error: e.message})
+    }
+
+});
+
+app.get('/review/:reviewID/history/', async (req, resp) => {
+    
+
+    try{
+        const reviewID = ObjectId(req.params.reviewID);
+   
+        const result = await client.db(DATABASE)
+        .collection(COLLECTION)
+        .findOne(
+            {
+                _id: reviewID
+            },
+            
+        )
+
+        resp.status(200)
+        resp.type('application/json')
+        resp.json(result)
+    }
+    catch(e){
+        resp.status(500)
+        resp.json({error: e.message})
+    }
+
+});
+
+app.get('/review/:reviewID', async (req, resp) => {
+    
+    try{
+        const reviewID = ObjectId(req.params.reviewID);
+   
+        // add updated review into database as an array of embedded objects. "edited" automatically becomes an array
+        const result = await client.db(DATABASE)
+        .collection(COLLECTION)
+        .findOne(
+            {
+                _id: reviewID
+            },
+            
+        )
+        var latestRating = 0.0
+
+        if ('edited' in result){
+            latestRating = result.edited[result.edited.length-1]['rating'];
+            latestDate = result.edited[result.edited.length-1]['posted'];
+            var edited = true;
+        }
+        else{
+            edited = false;
+        }
+
+        resp.status(200)
+        // resp.type('application/json')
+        resp.json({rating: latestRating, edited: edited, date: latestDate})
+
+    }
+    catch(e){
+        resp.status(500)
+        resp.json({error: e.message})
+    }
+
+});
+
