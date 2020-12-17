@@ -217,3 +217,55 @@ app.get('/review/:reviewID', async (req, resp) => {
 
 });
 
+// get game with highest rating
+app.get('/games/lowest', async (req, resp) => {
+    
+    try{
+   
+        const result = await client.db(DATABASE)
+        .collection(COLLECTION)
+        .find(
+        ).sort({rating: 1}).limit(1).toArray()
+
+        resp.status(200)
+        resp.type('application/json')
+        resp.json(result)
+
+    }
+    catch(e){
+        resp.status(500)
+        resp.json({error: e.message})
+    }
+
+});
+
+app.get('/games/min/:rating', async (req, resp) => {
+    
+    const minRating = parseFloat(req.params.rating);
+
+    try{
+   
+        const result = await client.db(DATABASE)
+        .collection(COLLECTION)
+        .find(
+            {
+                rating: {$gte: minRating}
+            }
+        ).sort({rating: 1}).limit(100).toArray()
+
+        resp.status(200)
+        resp.type('application/json')
+        // resp.json(result)
+        resp.json({
+            minRating: minRating,
+            games: [result],
+            Timestamp: new Date()
+        })
+
+    }
+    catch(e){
+        resp.status(500)
+        resp.json({error: e.message})
+    }
+
+});
